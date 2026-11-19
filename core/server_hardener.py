@@ -1,21 +1,19 @@
 """
-Nemr Cyber Harden - Server & .htaccess Hardening Engine
-Generates fortified Apache, LiteSpeed, and Nginx configurations to eliminate web exploitation vectors.
+Nemr Cyber Harden - Server, Nginx & PHP.ini Hardening Engine (v2.0.0)
+Generates fortified LiteSpeed/Apache .htaccess, Nginx server configs, and .user.ini/php.ini security directives.
 """
 
 from __future__ import annotations
-from pathlib import Path
 
 
 class ServerHardener:
-    """Generates military-grade web server hardening rules."""
+    """Generates military-grade web server and PHP runtime hardening configurations."""
 
     @classmethod
     def generate_htaccess(cls, domain: str = "") -> str:
-        return f"""# ========================================================
-# NEMR CYBER HARDEN - HIGH-SECURITY .HTACCESS CONFIGURATION
+        return """# ========================================================
+# NEMR CYBER HARDEN v2.0.0 - HIGH-SECURITY .HTACCESS
 # Platform: LiteSpeed Enterprise / Apache 2.4+
-# Generated: 2026
 # ========================================================
 
 # 1. DISABLE DIRECTORY BROWSING
@@ -35,49 +33,30 @@ ServerSignature Off
     </IfModule>
 </FilesMatch>
 
-# 4. PREVENT SCRIPT EXECUTION IN UPLOAD DIRECTORIES
-# Note: Place an additional .htaccess inside /uploads/ containing:
-# <FilesMatch "\\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|py|jsp|asp|sh)$">
-#    Deny from all
-# </FilesMatch>
-
-# 5. ENTERPRISE DEFENSIVE HEADERS
+# 4. ENTERPRISE DEFENSIVE HEADERS
 <IfModule mod_headers.c>
-    # Prevent clickjacking
     Header set X-Frame-Options "SAMEORIGIN"
-    
-    # Prevent MIME-sniffing
     Header set X-Content-Type-Options "nosniff"
-    
-    # XSS Protection filter
     Header set X-XSS-Protection "1; mode=block"
-    
-    # Referrer privacy policy
     Header set Referrer-Policy "strict-origin-when-cross-origin"
-    
-    # Permissions Policy
     Header set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
-    
-    # HTTP Strict Transport Security (HSTS - 1 Year)
     Header set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
 </IfModule>
 
-# 6. BLOCK MALICIOUS USER AGENTS & VULNERABILITY SCANNERS
+# 5. BLOCK SCANNER BOTS & EXPLOIT PAYLOADS (False-Positive Free)
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
 
     # Block automated vulnerability scanners
-    RewriteCond %{{HTTP_USER_AGENT}} (acunetix|sqlmap|nikto|havij|nmap|dirbuster|wprecon|jbrofuzz) [NC]
+    RewriteCond %{HTTP_USER_AGENT} (acunetix|sqlmap|nikto|havij|nmap|dirbuster|wprecon|jbrofuzz) [NC]
     RewriteRule .* - [F,L]
 
-    # Block common SQL injection strings in query string
-    RewriteCond %{{QUERY_STRING}} (union|select|insert|cast|set|declare|drop|md5|benchmark) [NC]
-    RewriteRule .* - [F,L]
-
-    # Block base64 encoded tags
-    RewriteCond %{{QUERY_STRING}} base64_encode[^(]*\\([^)]*\\) [NC,OR]
-    RewriteCond %{{QUERY_STRING}} (<|%3C)([^s]*s)+cript.*(>|%3E) [NC]
+    # Block active SQLi exploit patterns without false positives on words like 'select_plan' or 'settings'
+    RewriteCond %{QUERY_STRING} (union(\\s|\\+)+select|information_schema|benchmark\\s*\\(|sleep\\s*\\(|waitfor\\s+delay) [NC,OR]
+    RewriteCond %{QUERY_STRING} base64_encode[^(]*\\([^)]*\\) [NC,OR]
+    RewriteCond %{QUERY_STRING} (<|%3C)([^s]*s)+cript.*(>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} (\\.\\./|%2e%2e/) [NC]
     RewriteRule .* - [F,L]
 </IfModule>
 """
@@ -98,4 +77,67 @@ RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8
         Deny from all
     </IfModule>
 </FilesMatch>
+"""
+
+    @classmethod
+    def generate_nginx_conf(cls, domain: str = "example.com") -> str:
+        """Generates a hardened Nginx server block for PHP / SaaS applications."""
+        return f"""# Nemr Cyber Harden v2.0.0 - Hardened Nginx Server Config for {domain}
+server {{
+    listen 443 ssl http2;
+    server_name {domain};
+    root /var/www/{domain}/public;
+    index index.php index.html;
+
+    server_tokens off;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header Content-Security-Policy "default-src 'self'; object-src 'none'; frame-ancestors 'self';" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Block hidden dotfiles & sensitive extensions
+    location ~ /\\.(env|git|svn|ht) {{
+        deny all;
+        return 403;
+    }}
+
+    location ~* \\.(sql|bak|log|ini|sh|py)$ {{
+        deny all;
+        return 403;
+    }}
+
+    # Prevent PHP execution inside user upload directories
+    location ~* ^/uploads/.*\\.(php|phtml|php[3-8])$ {{
+        deny all;
+        return 403;
+    }}
+
+    location / {{
+        try_files $uri $uri/ /index.php?$query_string;
+    }}
+}}
+"""
+
+    @classmethod
+    def generate_php_ini(cls) -> str:
+        """Generates hardened .user.ini / php.ini runtime security directives."""
+        return """; Nemr Cyber Harden v2.0.0 - Hardened PHP Runtime Security (.user.ini / php.ini)
+expose_php = Off
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+
+; Strict Cookie & Session Protections
+session.cookie_httponly = 1
+session.cookie_secure = 1
+session.cookie_samesite = "Strict"
+session.use_strict_mode = 1
+session.use_only_cookies = 1
+
+; Remote file inclusion defense
+allow_url_fopen = On
+allow_url_include = Off
+enable_dl = Off
 """

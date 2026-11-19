@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nemr-cyber-harden"
+version = "3.0.0"
+description = "Server/Nginx/PHP Hardener, AST PHP SQLi/XSS Auto-Patcher, Supply-Chain Dependency Auditor, CSP Builder, Secret Scanner & Headers Grader"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mahmoud ElNeMeR", email = "contact@elnemer-ai.com" }]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ElNeMeR70/nemr-cyber-harden"
+Repository = "https://github.com/ElNeMeR70/nemr-cyber-harden"
+
+[project.scripts]
+nemr-harden = "cli:main"
+
+[tool.setuptools]
+py-modules = ["cli"]
+packages = ["core"]
